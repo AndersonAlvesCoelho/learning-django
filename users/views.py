@@ -4,11 +4,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .serializers import RegisterSerializer
+from .serializers import RegisterSerializer, UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class RegisterView(APIView):
+    permission_classes = []  
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -17,31 +19,30 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
-     def post(self, request):
+    permission_classes = []  
+
+    def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
         user = authenticate(request, username=username, password=password)
-        
+
         if user:
-            login(request, user)
-            
+            # Gerar o token JWT
             refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            
             return Response({
+                "message": "Login successful!",
                 "user": {
                     "id": user.id,
                     "username": user.username,
-                    "email": user.email,
+                    "email": user.email
                 },
                 "tokens": {
                     "refresh": str(refresh),
-                    "access": access_token,
+                    "access": str(refresh.access_token),
                 }
             }, status=status.HTTP_200_OK)
-        
-        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
     def post(self, request):
@@ -49,8 +50,9 @@ class LogoutView(APIView):
         return Response({"message": "Logout successful!"}, status=status.HTTP_200_OK)
 
 class UserListView(APIView):
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        users = User.objects.all().values('id', 'username', 'email')
-        return Response(users)
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
